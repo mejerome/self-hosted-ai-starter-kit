@@ -19,34 +19,25 @@ x-n8n: &service-n8n
     - N8N_PERSONALIZATION_ENABLED=false
     - N8N_ENCRYPTION_KEY
     - N8N_USER_MANAGEMENT_JWT_SECRET
+    - WEBHOOK_URL=https://n8n.localhost
   links:
     - postgres
 
-x-ollama: &service-ollama
-  image: ollama/ollama:latest
-  container_name: ollama
-  networks: ['demo']
-  restart: unless-stopped
-  ports:
-    - 11434:11434
-  volumes:
-    - ollama_storage:/root/.ollama
-
-x-init-ollama: &init-ollama
-  image: ollama/ollama:latest
-  networks: ['demo']
-  container_name: ollama-pull-llama
-  volumes:
-    - ollama_storage:/root/.ollama
-  entrypoint: /bin/sh
-  command:
-    - "-c"
-    - "sleep 3; OLLAMA_HOST=ollama:11434 ollama pull llama3.2"
-
 services:
+  web-ui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: web-ui
+    networks: ['demo']
+    ports:
+      - 8080:8080
+    environment:
+      - OLLAMA_API_BASE_URL=http://ollama:11434
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     networks: ['demo']
+    ports: ['5432:5432']
     restart: unless-stopped
     environment:
       - POSTGRES_USER
@@ -88,6 +79,10 @@ services:
         condition: service_healthy
       n8n-import:
         condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
 
   qdrant:
     image: qdrant/qdrant
@@ -98,30 +93,3 @@ services:
       - 6333:6333
     volumes:
       - qdrant_storage:/qdrant/storage
-
-  ollama-cpu:
-    profiles: ["cpu"]
-    <<: *service-ollama
-
-  ollama-gpu:
-    profiles: ["gpu-nvidia"]
-    <<: *service-ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-
-  ollama-pull-llama-cpu:
-    profiles: ["cpu"]
-    <<: *init-ollama
-    depends_on:
-      - ollama-cpu
-
-  ollama-pull-llama-gpu:
-    profiles: ["gpu-nvidia"]
-    <<: *init-ollama
-    depends_on:
-      - ollama-gpu

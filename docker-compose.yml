@@ -99,7 +99,7 @@ services:
     ports:
       - "11235:11235"
     environment:
-      - CRAWL4AI_API_TOKEN='JeromeAILabs'  # Optional API security
+      - CRAWL4AI_API_TOKEN=${CRAWL4AI_API_TOKEN}  # Optional API security
       - MAX_CONCURRENT_TASKS=5
     volumes:
       - /dev/shm:/dev/shm
